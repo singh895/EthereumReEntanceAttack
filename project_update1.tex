@@ -1,0 +1,215 @@
+\documentclass{article}
+\usepackage[inner=2.0cm,outer=2.0cm,top=2.0cm,bottom=2.0cm]{geometry}
+\usepackage[rgb]{xcolor}
+\usepackage{subcaption}
+\usepackage{amsgen,amsmath,amstext,amsbsy,amsopn,amssymb}
+\usepackage{fancyhdr}
+\usepackage[colorlinks=true, urlcolor=blue, linkcolor=blue, citecolor=blue]{hyperref}
+\usepackage{booktabs}
+\usepackage{setspace}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny
+}
+
+\newcommand{\homework}[4]{
+\pagestyle{myheadings}
+\thispagestyle{plain}
+\setcounter{page}{1}
+\noindent
+\begin{center}
+\framebox{
+\vbox{
+\hbox to 6.9251969in { {\bf ECE 59500 -- Introduction to Applied Cryptography \hfill #2} }
+\vspace{4mm}
+\hbox to 6.9251969in { {\Large \hfill #1  \hfill} }
+\vspace{3mm}
+\hbox to 6.9251969in { {\it Instructor: {\rm #3} \hfill Name: {\rm #4}} }
+\vspace{1.5mm}
+}
+}
+\end{center}
+\markboth{#4 -- #1}{#4 -- #1}
+\vspace*{4mm}
+}
+
+\newcounter{ProblemNum}
+\renewcommand{\theProblemNum}{\arabic{ProblemNum}}
+\newcommand*{\anyproblem}[1]{\section{#1}}
+
+\begin{document}
+\onehalfspacing
+
+\homework{Project Update 1}{Fall 2025}{Prof. Zahra Ghodsi}{Saanvi Singh, Yoon Suk Uhr}
+
+\noindent
+\textbf{Team Members: Saanvi Singh, Yoon Suk Uhr} 
+\vspace{1em} \\
+\noindent
+\textbf{Project Name: Heist on the Blockchain: A Practical Re-entrancy Attack in Ethereum Smart Contracts}
+
+\anyproblem{Introduction}
+
+In 2016, a single vulnerability in a smart contract led to the theft of over \$50 million in cryptocurrency and forced the entire Ethereum network to undergo a controversial hard fork. This vulnerability---the re-entrancy attack---remains one of the most persistent and devastating security flaws in blockchain technology, responsible for \$35.7 million in losses as recently as 2024.
+
+Our project addresses the gap between theoretical knowledge and practical understanding of the re-entrancy vulnerability. We build a complete attack-to-defense pipeline demonstrating both successful exploitation and successful prevention through reproducible, automated testing.
+
+\textbf{Research Question:} How can we bridge the gap between theoretical knowledge of the re-entrancy vulnerability and practical understanding of its exploitation and prevention?
+
+\textbf{Key Contributions:}
+\begin{itemize}
+\item Practical, executable demonstration of re-entrancy attack
+\item Implementation and verification of CEI pattern defense
+\item Educational resource with automated testing
+\item Quantifiable results: 100\% attack success on vulnerable contracts, 100\% defense on secure contracts
+\end{itemize}
+
+\anyproblem{Background}
+
+\subsection{Smart Contracts}
+Smart contracts are self-executing programs on blockchain networks, written in Solidity for Ethereum. Once deployed, they are immutable, making vulnerabilities permanent.
+
+\subsection{The CEI Pattern}
+The Checks-Effects-Interactions pattern prescribes:
+\begin{enumerate}
+\item \textbf{Checks:} Validate conditions
+\item \textbf{Effects:} Update state
+\item \textbf{Interactions:} Make external calls
+\end{enumerate}
+
+\subsection{Re-entrancy Vulnerability}
+Occurs when a contract makes external calls before updating state, allowing recursive exploitation through fallback functions.
+
+\anyproblem{Methodology}
+
+\subsection{Phase 1: Environment Setup}
+Initialized Hardhat 2.22.0 with Solidity 0.8.20, Ethers.js 6.11.0, and Chai 4.3.10 for local blockchain testing.
+
+\subsection{Phase 2: Vulnerable Contract}
+Implemented VulnerableBank.sol with intentional CEI violation:
+
+\begin{lstlisting}[language=Java, caption=Vulnerable Withdrawal]
+function withdraw() public {
+    uint256 balance = balances[msg.sender];
+    require(balance > 0);
+    
+    // VULNERABILITY: External call BEFORE state update
+    (bool success, ) = msg.sender.call{value: balance}("");
+    require(success);
+    
+    // TOO LATE: State update AFTER external call
+    balances[msg.sender] = 0;
+}
+\end{lstlisting}
+
+\subsection{Phase 3: Attacker Contract}
+Implemented Attacker.sol exploiting the vulnerability through recursive fallback:
+
+\begin{lstlisting}[language=Java, caption=Attack Mechanism]
+receive() external payable {
+    if (address(vulnerableBank).balance >= 1 ether) {
+        try vulnerableBank.withdraw() {
+            // Recursive call succeeds
+        } catch {
+            // Attack prevented
+        }
+    }
+}
+\end{lstlisting}
+
+\subsection{Phase 4: Secure Implementation}
+Implemented SecureBank.sol following CEI pattern:
+
+\begin{lstlisting}[language=Java, caption=Secure Withdrawal]
+function withdraw() public {
+    uint256 balance = balances[msg.sender];
+    require(balance > 0);
+    
+    // SECURITY FIX: State update BEFORE external call
+    balances[msg.sender] = 0;
+    
+    // External call AFTER state update
+    (bool success, ) = msg.sender.call{value: balance}("");
+    require(success);
+}
+\end{lstlisting}
+
+\subsection{Phase 5: Testing}
+Developed comprehensive test suite with 5 automated tests verifying attack success and defense effectiveness.
+
+\anyproblem{Preliminary Results}
+
+\subsection{Attack Results}
+\textbf{Vulnerable Bank:}
+\begin{itemize}
+\item Initial Balance: 10.0 ETH
+\item Attacker Investment: 1.0 ETH
+\item Final Balance: 0.0 ETH
+\item \textbf{Total Stolen: 10.0 ETH (1000\% ROI)}
+\item \textbf{Success Rate: 100\%}
+\end{itemize}
+
+\subsection{Defense Results}
+\textbf{Secure Bank:}
+\begin{itemize}
+\item Initial Balance: 10.0 ETH
+\item Attacker Investment: 1.0 ETH
+\item Final Balance: 10.0 ETH
+\item \textbf{Total Stolen: 0.0 ETH}
+\item \textbf{Defense Success: 100\%}
+\end{itemize}
+
+\subsection{Comparative Analysis}
+
+\begin{table}[h]
+\centering
+\caption{Vulnerable vs. Secure Implementation}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metric} & \textbf{Vulnerable} & \textbf{Secure} \\ \midrule
+State Update Timing & After call & Before call \\
+Re-entrancy Possible & Yes & No \\
+Funds Lost & 100\% & 0\% \\
+Recursive Calls & 11 & 1 \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Test Metrics}
+\begin{itemize}
+\item Total Tests: 5
+\item Passing: 5 (100\%)
+\item Execution Time: ~400ms
+\item Reproducibility: 100\%
+\end{itemize}
+
+\anyproblem{Related Work}
+
+Our work builds on foundational analysis of the 2016 DAO hack and automated detection tools like Securify and SmartCheck. While these tools achieve high accuracy, Chen et al. (2023) found 67-82\% false positive rates. Our practical demonstration validates theoretical frameworks and provides hands-on security education, addressing the gap between detection and understanding.
+
+\anyproblem{References}
+
+\begin{thebibliography}{9}
+
+\bibitem{dao}
+Siegel, D. ``Understanding The DAO Attack.'' CoinDesk, 2016.
+
+\bibitem{solidity}
+Solidity Documentation. ``Security Considerations.'' 2024.
+
+\bibitem{luu}
+Luu, L. et al. ``Making Smart Contracts Smarter.'' ACM CCS, 2016.
+
+\bibitem{securify}
+Tsankov, P. et al. ``Securify: Practical Security Analysis.'' ACM CCS, 2018.
+
+\bibitem{chen}
+Chen, W. et al. ``Benchmark of Vulnerability Detection Tools.'' ACM TOSEM, 2023.
+
+\end{thebibliography}
+
+\end{document}
